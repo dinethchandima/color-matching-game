@@ -1,8 +1,12 @@
-//
-//  GameCard.swift
-//  color-matching-game
-//
-//  Created by COBSCCOMP242P-033 on 2026-01-22.
-//
+import SwiftUI
 
-import Foundation
+struct GameCard: Identifiable, Equatable {
+    let id = UUID()
+    let color: Color
+    var isFaceUp: Bool = false
+    var isMatched: Bool = false
+    
+    static func == (lhs: GameCard, rhs: GameCard) -> Bool {
+        return lhs.color == rhs.color
+    }
+}
