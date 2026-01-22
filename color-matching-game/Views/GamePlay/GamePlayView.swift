@@ -44,20 +44,24 @@ struct GamePlayView: View {
             
             Spacer()
             
-            // Control Buttons - REMOVED PAUSE
+            // Control Buttons
             HStack(spacing: 20) {
                 ControlButton(
                     title: "Reset",
                     icon: "arrow.counterclockwise",
                     color: .orange,
-                    action: game.resetGame
+                    action: {
+                        game.resetGame()
+                    }
                 )
                 
                 ControlButton(
                     title: "Menu",
                     icon: "house.fill",
                     color: .blue,
-                    action: game.returnToMenu
+                    action: {
+                        game.returnToMenu()
+                    }
                 )
             }
             .padding(.horizontal)
@@ -74,7 +78,6 @@ struct GamePlayView: View {
         }
         .padding(.vertical)
         .onAppear {
-            // Game starts automatically when this view appears
             if !game.isGameActive && !game.gameOver {
                 game.startGame()
             }

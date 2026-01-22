@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GameHeaderView: View {
     @ObservedObject var game: MemoryGame
+    @EnvironmentObject var scoreManager: ScoreManager
     
     var body: some View {
         VStack(spacing: 10) {
@@ -46,10 +47,19 @@ struct GameHeaderView: View {
             .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
             .padding(.horizontal)
             
-            Text("Tap two cards to find matching colors")
-                .font(.headline)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
+            HStack {
+                Text("High Score: \(scoreManager.getHighScore(forDifficulty: game.selectedDifficulty.rawValue))")
+                    .font(.subheadline)
+                    .foregroundColor(.yellow)
+                    .fontWeight(.medium)
+                
+                Spacer()
+                
+                Text("Tap two cards to find matching colors")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
             
             if game.hintsRemaining > 0 {
                 Text("Tap the 💡 button for a hint!")
