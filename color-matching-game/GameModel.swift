@@ -2,7 +2,18 @@ import SwiftUI
 import Foundation
 import Combine
 
-enum DifficultyLevel: String, CaseIterable {
+struct GameCard: Identifiable, Equatable {
+    let id = UUID()
+    let color: Color
+    var isFaceUp: Bool = false
+    var isMatched: Bool = false
+    
+    static func == (lhs: GameCard, rhs: GameCard) -> Bool {
+        return lhs.color == rhs.color
+    }
+}
+
+enum DifficultyLevel: String, CaseIterable, Codable {
     case easy = "Easy"
     case medium = "Medium"
     case hard = "Hard"
@@ -37,6 +48,31 @@ enum DifficultyLevel: String, CaseIterable {
     }
 }
 
+struct HighScore: Identifiable, Codable, Comparable {
+    let id = UUID()
+    let score: Int
+    let difficulty: DifficultyLevel
+    let date: Date
+    let timeLeft: Int
+    let moves: Int
+    let hintsUsed: Int
+    
+    static func < (lhs: HighScore, rhs: HighScore) -> Bool {
+        return lhs.score < rhs.score
+    }
+    
+    static func == (lhs: HighScore, rhs: HighScore) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
 class MemoryGame: ObservableObject {
     // MARK: - Published Properties
     @Published var cards: [GameCard] = []
@@ -54,19 +90,92 @@ class MemoryGame: ObservableObject {
     @Published var hintsRemaining = 0
     @Published var isShowingHint = false
     @Published var hintCards: [GameCard] = []
-    @Published var playerName = ""
-    @Published var showNameInput = false
+    @Published var highScores: [HighScore] = []
+    @Published var showHighScores = false
+    @Published var newHighScoreAchieved = false
     
     // MARK: - Private Properties
     private var timer: Timer?
-    private var gameStartTime = Date()
-    private let scoreManager = ScoreManager()
-    
     private let allColors: [Color] = [
         .red, .blue, .green, .yellow, .orange, .purple,
         .pink, .brown, .cyan, .mint, .teal, .indigo,
         .gray, .black, .white.opacity(0.8)
     ]
+    private let highScoresKey = "memoryGameHighScores"
+    
+    // MARK: - Initializer
+    init() {
+        loadHighScores()
+    }
+    
+    // MARK: - High Score Management
+    private func loadHighScores() {
+        if let data = UserDefaults.standard.data(forKey: highScoresKey) {
+            if let decoded = try? JSONDecoder().decode([HighScore].self, from: data) {
+                highScores = decoded
+                return
+            }
+        }
+        highScores = []
+    }
+    
+    private func saveHighScores() {
+        if let encoded = try? JSONEncoder().encode(highScores) {
+            UserDefaults.standard.set(encoded, forKey: highScoresKey)
+        }
+    }
+    
+    func addHighScore(timeLeft: Int, hintsUsed: Int) {
+        let newScore = HighScore(
+            score: score,
+            difficulty: selectedDifficulty,
+            date: Date(),
+            timeLeft: timeLeft,
+            moves: moves,
+            hintsUsed: hintsUsed
+        )
+        
+        // Check if it's a new high score for this difficulty
+        let scoresForDifficulty = highScores.filter { $0.difficulty == selectedDifficulty }
+        let isNewHighScore = scoresForDifficulty.isEmpty || score > (scoresForDifficulty.max()?.score ?? 0)
+        
+        // Add to high scores
+        highScores.append(newScore)
+        
+        // Keep only top 10 scores per difficulty
+        var filteredScores: [HighScore] = []
+        for difficulty in DifficultyLevel.allCases {
+            let difficultyScores = highScores.filter { $0.difficulty == difficulty }
+            let topScores = difficultyScores.sorted(by: { $0.score > $1.score }).prefix(10)
+            filteredScores.append(contentsOf: topScores)
+        }
+        
+        highScores = filteredScores
+        saveHighScores()
+        
+        // Show celebration if new high score
+        if isNewHighScore {
+            newHighScoreAchieved = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.newHighScoreAchieved = false
+            }
+        }
+    }
+    
+    func getHighScores(for difficulty: DifficultyLevel) -> [HighScore] {
+        return highScores
+            .filter { $0.difficulty == difficulty }
+            .sorted { $0.score > $1.score }
+    }
+    
+    func getTopScore(for difficulty: DifficultyLevel) -> Int {
+        return getHighScores(for: difficulty).first?.score ?? 0
+    }
+    
+    func clearAllHighScores() {
+        highScores = []
+        saveHighScores()
+    }
     
     // MARK: - Game Logic
     func selectDifficulty(_ difficulty: DifficultyLevel) {
@@ -75,48 +184,48 @@ class MemoryGame: ObservableObject {
         hintsRemaining = difficulty.hintCount
         setupGame()
         showDifficultySelection = false
+        showHighScores = false
     }
     
     func setupGame() {
-          let gridSize = selectedDifficulty.gridSize
-          let totalCards = gridSize * gridSize
-          let numberOfPairs = totalCards / 2
-          
-          // Select colors for pairs
-          let selectedColors = Array(allColors.shuffled().prefix(numberOfPairs))
-          
-          // Create pairs
-          var newCards: [GameCard] = []
-          for color in selectedColors {
-              let card1 = GameCard(color: color)
-              let card2 = GameCard(color: color)
-              newCards.append(contentsOf: [card1, card2])
-          }
-          
-          // If odd number of cards (for 3x3, 5x5), add one bonus card
-          if totalCards % 2 == 1 {
-              let bonusColor = allColors.filter { !selectedColors.contains($0) }.first ?? .gray
-              newCards.append(GameCard(color: bonusColor))
-          }
-          
-          // Shuffle and set cards
-          cards = newCards.shuffled()
-          
-          // Reset game state
-          score = 0
-          moves = 0
-          selectedCards = []
-          gameOver = false
-          isShowingHint = false
-          hintCards = []
-          showMatchFeedback = false
-          // Don't reset playerName here, it's reset in resetGame()
-      }
+        let gridSize = selectedDifficulty.gridSize
+        let totalCards = gridSize * gridSize
+        let numberOfPairs = totalCards / 2
+        
+        // Select colors for pairs
+        let selectedColors = Array(allColors.shuffled().prefix(numberOfPairs))
+        
+        // Create pairs
+        var newCards: [GameCard] = []
+        for color in selectedColors {
+            let card1 = GameCard(color: color)
+            let card2 = GameCard(color: color)
+            newCards.append(contentsOf: [card1, card2])
+        }
+        
+        // If odd number of cards (for 3x3, 5x5), add one bonus card
+        if totalCards % 2 == 1 {
+            let bonusColor = allColors.filter { !selectedColors.contains($0) }.first ?? .gray
+            newCards.append(GameCard(color: bonusColor))
+        }
+        
+        // Shuffle and set cards
+        cards = newCards.shuffled()
+        
+        // Reset game state
+        score = 0
+        moves = 0
+        selectedCards = []
+        gameOver = false
+        isShowingHint = false
+        hintCards = []
+        newHighScoreAchieved = false
+    }
     
     func startGame() {
         isGameActive = true
-        gameStartTime = Date()
         startTimer()
+        // Show all cards briefly at start
         showAllCardsBriefly()
     }
     
@@ -217,6 +326,7 @@ class MemoryGame: ObservableObject {
             // Game completed successfully
             endGame()
             gameOver = true
+            addHighScore(timeLeft: timeRemaining, hintsUsed: selectedDifficulty.hintCount - hintsRemaining)
         }
     }
     
@@ -282,11 +392,6 @@ class MemoryGame: ObservableObject {
         hintCards = []
     }
     
-    func shouldShowNameInput() -> Bool {
-           // We'll check this elsewhere, method is simplified
-           return false
-       }
-    
     private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -297,67 +402,34 @@ class MemoryGame: ObservableObject {
             } else {
                 self.endGame()
                 self.gameOver = true
+                self.addHighScore(timeLeft: 0, hintsUsed: self.selectedDifficulty.hintCount - self.hintsRemaining)
             }
         }
     }
     
-   
     func endGame() {
-            isGameActive = false
-            timer?.invalidate()
-            timer = nil
-            
-            // Show name input if score is high enough
-            let highScore = scoreManager.getHighScore(forDifficulty: selectedDifficulty.rawValue)
-            if score > highScore || highScore == 0 {
-                showNameInput = true
-            } else {
-                gameOver = true
-            }
-        print("Game ended with score: \(score)")
-        }
+        isGameActive = false
+        timer?.invalidate()
+        timer = nil
+    }
+    
     func resetGame() {
         endGame()
         hintsRemaining = selectedDifficulty.hintCount
         setupGame()
         timeRemaining = selectedDifficulty.timeLimit
-        playerName = "" // Reset player name
-        showNameInput = false // Reset name input flag
-        startGame()
     }
-       
-      
-       
+    
     func returnToMenu() {
-          endGame()
-          playerName = "" // Reset player name
-          showNameInput = false // Reset name input flag
-          showDifficultySelection = true
-          gameOver = false
-      }
+        endGame()
+        showDifficultySelection = true
+        gameOver = false
+        showHighScores = false
+    }
     
-        func saveScore() {
-            let timeTaken = selectedDifficulty.timeLimit - timeRemaining
-            let hintsUsed = selectedDifficulty.hintCount - hintsRemaining
-            
-            let newScore = GameScore(
-                playerName: playerName.isEmpty ? "Anonymous" : playerName,
-                score: score,
-                difficulty: selectedDifficulty.rawValue,
-                date: Date(),
-                timeTaken: timeTaken,
-                hintsUsed: hintsUsed
-            )
-            
-            scoreManager.addScore(newScore)
-            showNameInput = false
-            gameOver = true
-        }
-        
-        func getHighScore() -> Int {
-            return scoreManager.getHighScore(forDifficulty: selectedDifficulty.rawValue)
-        }
-        
-    
-   
+    func showHighScoresView() {
+        showHighScores = true
+        showDifficultySelection = false
+        gameOver = false
+    }
 }
