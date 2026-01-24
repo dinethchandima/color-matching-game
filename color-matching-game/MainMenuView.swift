@@ -92,7 +92,7 @@ struct MainMenuView: View {
                         GridItem(.flexible())
                     ], spacing: 20) {
                         ForEach(GameType.allCases, id: \.self) { game in
-                            GameCardView(game: game, profileManager: profileManager)
+                            MenuGameCardView(game: game, profileManager: profileManager)
                         }
                     }
                     .padding(.horizontal)
@@ -106,21 +106,21 @@ struct MainMenuView: View {
                         
                         if let profile = profileManager.currentProfile {
                             HStack {
-                                StatCard(
+                                MenuStatCard(
                                     title: "Total Games",
                                     value: "\(profile.totalGamesPlayed)",
                                     icon: "gamecontroller.fill",
                                     color: .green
                                 )
                                 
-                                StatCard(
+                                MenuStatCard(
                                     title: "Total Score",
                                     value: "\(profile.totalScore)",
                                     icon: "star.fill",
                                     color: .yellow
                                 )
                                 
-                                StatCard(
+                                MenuStatCard(
                                     title: "Levels",
                                     value: "\(profile.unlockedLevels.values.reduce(0, +))",
                                     icon: "chart.bar.fill",
@@ -166,7 +166,8 @@ struct MainMenuView: View {
     }
 }
 
-struct GameCardView: View {
+// MARK: - Menu Game Card View (Renamed from GameCardView)
+struct MenuGameCardView: View {
     let game: GameType
     @ObservedObject var profileManager: ProfileManager
     
@@ -179,7 +180,7 @@ struct GameCardView: View {
                     .frame(width: 70, height: 70)
                     .background(gameGradient)
                     .clipShape(Circle())
-                    .shadow(color: gameGradient.stops[0].color.opacity(0.3), radius: 5, x: 0, y: 3)
+                    .shadow(color: gameGradientColors.first?.opacity(0.3) ?? Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
                 
                 Text(game.rawValue)
                     .font(.title2)
@@ -236,6 +237,15 @@ struct GameCardView: View {
         }
     }
     
+    private var gameGradientColors: [Color] {
+        switch game {
+        case .memoryMatch:
+            return [Color.blue, Color.purple]
+        case .colorMatch:
+            return [Color.green, Color.blue]
+        }
+    }
+    
     private var destinationView: some View {
         Group {
             switch game {
@@ -250,7 +260,7 @@ struct GameCardView: View {
     }
 }
 
-struct StatCard: View {
+struct MenuStatCard: View {
     let title: String
     let value: String
     let icon: String

@@ -16,11 +16,11 @@ struct ColorMatchLevelView: View {
                 .ignoresSafeArea()
                 
                 if game.showLevelComplete {
-                    LevelCompleteView(game: game)
+                    ColorLevelCompleteView(game: game)
                 } else if game.gameOver {
-                    GameOverView(game: game, profileManager: profileManager)
+                    ColorGameOverView(game: game, profileManager: profileManager)
                 } else {
-                    GamePlayView(game: game)
+                    ColorGamePlayView(game: game)
                 }
             }
             .navigationTitle("Color Match")
@@ -36,13 +36,14 @@ struct ColorMatchLevelView: View {
                 }
             }
             .sheet(isPresented: $showingGameMenu) {
-                GameMenuView(game: game, profileManager: profileManager)
+                ColorGameMenuView(game: game, profileManager: profileManager)
             }
         }
     }
 }
 
-struct GamePlayView: View {
+// MARK: - Color Game Play View (Renamed from GamePlayView)
+struct ColorGamePlayView: View {
     @ObservedObject var game: ColorMatchGame
     
     var columns: [GridItem] {
@@ -52,7 +53,7 @@ struct GamePlayView: View {
     var body: some View {
         VStack(spacing: 20) {
             // Game Header
-            GameHeaderView(game: game)
+            ColorGameHeaderView(game: game)
             
             // Target Color Display
             VStack(spacing: 15) {
@@ -146,7 +147,7 @@ struct GamePlayView: View {
             
             // Feedback
             if game.showFeedback {
-                FeedbackView(message: game.feedbackMessage, color: game.feedbackColor)
+                ColorFeedbackView(message: game.feedbackMessage, color: game.feedbackColor)
             }
         }
         .padding(.vertical)
@@ -165,7 +166,8 @@ struct GamePlayView: View {
     }
 }
 
-struct GameHeaderView: View {
+// MARK: - Color Game Header View (Renamed from GameHeaderView)
+struct ColorGameHeaderView: View {
     @ObservedObject var game: ColorMatchGame
     
     var body: some View {
@@ -237,7 +239,7 @@ struct ColorOptionView: View {
     }
 }
 
-struct LevelCompleteView: View {
+struct ColorLevelCompleteView: View {
     @ObservedObject var game: ColorMatchGame
     
     var body: some View {
@@ -297,7 +299,7 @@ struct LevelCompleteView: View {
     }
 }
 
-struct GameOverView: View {
+struct ColorGameOverView: View {
     @ObservedObject var game: ColorMatchGame
     @ObservedObject var profileManager: ProfileManager
     @Environment(\.dismiss) var dismiss
@@ -317,9 +319,9 @@ struct GameOverView: View {
                     .foregroundColor(.red)
                 
                 VStack(spacing: 15) {
-                    GameStatRow(title: "Final Score", value: "\(game.score)", icon: "star.fill", color: .yellow)
-                    GameStatRow(title: "Level Reached", value: "\(game.currentLevel)", icon: "chart.bar.fill", color: .green)
-                    GameStatRow(title: "Total Time", value: "\(game.currentLevelData.timeLimit - game.timeRemaining)s", icon: "clock.fill", color: .orange)
+                    ColorGameStatRow(title: "Final Score", value: "\(game.score)", icon: "star.fill", color: .yellow)
+                    ColorGameStatRow(title: "Level Reached", value: "\(game.currentLevel)", icon: "chart.bar.fill", color: .green)
+                    ColorGameStatRow(title: "Total Time", value: "\(game.currentLevelData.timeLimit - game.timeRemaining)s", icon: "clock.fill", color: .orange)
                 }
                 .padding()
                 .background(Color.white.opacity(0.9))
@@ -376,7 +378,34 @@ struct GameOverView: View {
     }
 }
 
-struct GameMenuView: View {
+struct ColorGameStatRow: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 40)
+            
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+        }
+    }
+}
+
+struct ColorGameMenuView: View {
     @ObservedObject var game: ColorMatchGame
     @ObservedObject var profileManager: ProfileManager
     @Environment(\.dismiss) var dismiss
@@ -404,17 +433,17 @@ struct GameMenuView: View {
                 Divider()
                 
                 VStack(spacing: 15) {
-                    MenuButton(title: "Restart Level", icon: "arrow.counterclockwise", color: .orange) {
+                    ColorMenuButton(title: "Restart Level", icon: "arrow.counterclockwise", color: .orange) {
                         game.restartLevel()
                         dismiss()
                     }
                     
-                    MenuButton(title: "New Game", icon: "play.fill", color: .green) {
+                    ColorMenuButton(title: "New Game", icon: "play.fill", color: .green) {
                         game.restartGame()
                         dismiss()
                     }
                     
-                    MenuButton(title: "Level Selection", icon: "list.number", color: .blue) {
+                    ColorMenuButton(title: "Level Selection", icon: "list.number", color: .blue) {
                         // Future: Add level selection
                         dismiss()
                     }
@@ -436,7 +465,7 @@ struct GameMenuView: View {
     }
 }
 
-struct MenuButton: View {
+struct ColorMenuButton: View {
     let title: String
     let icon: String
     let color: Color
@@ -467,7 +496,7 @@ struct MenuButton: View {
     }
 }
 
-struct FeedbackView: View {
+struct ColorFeedbackView: View {
     let message: String
     let color: Color
     
