@@ -28,9 +28,9 @@ enum DifficultyLevel: String, CaseIterable, Codable {
     
     var timeLimit: Int {
         switch self {
-        case .easy: return 60
-        case .medium: return 45
-        case .hard: return 30
+        case .easy: return 15
+        case .medium: return 30
+        case .hard: return 45
         }
     }
     

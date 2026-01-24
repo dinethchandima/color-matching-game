@@ -1,10 +1,13 @@
 import SwiftUI
 
 @main
-struct MemoryGameApp: App {
+struct MultiGameApp: App {
+    @StateObject private var profileManager = ProfileManager()
+    
     var body: some Scene {
         WindowGroup {
-            MemoryGameView()
+            MainMenuView()
+                .environmentObject(profileManager)
         }
     }
 }
