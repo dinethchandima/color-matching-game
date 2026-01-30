@@ -2,27 +2,21 @@ import SwiftUI
 
 struct MemoryGameView: View {
     @StateObject private var game = MemoryGame()
-    @EnvironmentObject private var profileManager: ProfileManager
-    @State private var showingGameMenu = false
     
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
                 
                 if game.showDifficultySelection {
                     DifficultySelectionView(game: game)
                 } else if game.gameOver {
-                    MemoryGameOverView(game: game, profileManager: profileManager)
+                    GameOverView(game: game)
                 } else if game.showHighScores {
                     HighScoresView(game: game)
                 } else {
-                    MemoryGamePlayView(game: game, profileManager: profileManager)
+                    GamePlayView(game: game)
                 }
                 
                 // New High Score Celebration
@@ -32,19 +26,6 @@ struct MemoryGameView: View {
             }
             .navigationTitle("Memory Match")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        showingGameMenu = true
-                    }) {
-                        Image(systemName: "line.horizontal.3")
-                            .font(.title2)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingGameMenu) {
-                MemoryGameMenuView(game: game, profileManager: profileManager)
-            }
         }
     }
 }
@@ -149,7 +130,7 @@ struct DifficultySelectionView: View {
                         gridSize: "3×3 Grid",
                         time: "60 seconds",
                         hints: "1 hint",
-                        description: "9 cards, 4 pairs, Level 1-10"
+                        description: "9 cards, 4 pairs"
                     )
                     
                     DifficultyInfoRow(
@@ -157,7 +138,7 @@ struct DifficultySelectionView: View {
                         gridSize: "4×4 Grid",
                         time: "45 seconds",
                         hints: "2 hints",
-                        description: "16 cards, 8 pairs, Level 1-10"
+                        description: "16 cards, 8 pairs"
                     )
                     
                     DifficultyInfoRow(
@@ -165,7 +146,7 @@ struct DifficultySelectionView: View {
                         gridSize: "5×5 Grid",
                         time: "30 seconds",
                         hints: "3 hints",
-                        description: "25 cards, 12 pairs + 1 bonus, Level 1-10"
+                        description: "25 cards, 12 pairs + 1 bonus"
                     )
                 }
                 .padding()
@@ -174,7 +155,7 @@ struct DifficultySelectionView: View {
                 .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
                 .padding(.horizontal)
                 
-                Text("Match pairs of colors. Complete levels to unlock higher difficulties!")
+                Text("Match pairs of colors before time runs out!")
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
@@ -507,10 +488,9 @@ struct HighScoreRow: View {
     }
 }
 
-// MARK: - Memory Game Play View (Fixed)
-struct MemoryGamePlayView: View {
+// MARK: - Game Play View
+struct GamePlayView: View {
     @ObservedObject var game: MemoryGame
-    @ObservedObject var profileManager: ProfileManager
     
     var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 10), count: game.selectedDifficulty.gridSize)
@@ -520,69 +500,27 @@ struct MemoryGamePlayView: View {
         game.getTopScore(for: game.selectedDifficulty)
     }
     
-    var currentLevel: Int {
-        if let profile = profileManager.currentProfile {
-            return profile.getLevel(for: .memoryMatch, difficulty: game.selectedDifficulty)
-        }
-        return 1
-    }
-    
-    var levelProgress: Int {
-        let totalRounds = 10 // 10 rounds per level
-        let progress = min(game.currentRound, totalRounds)
-        return Int((Double(progress) / Double(totalRounds)) * 100)
-    }
-    
     var body: some View {
         VStack(spacing: 20) {
             // Game Header
-            MemoryGameHeaderView(game: game, topScore: topScore, currentLevel: currentLevel, levelProgress: levelProgress)
-            
-            // Level Progress
-            VStack(spacing: 10) {
-                HStack {
-                    Text("Level \(currentLevel)")
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                    
-                    Spacer()
-                    
-                    Text("Round \(min(game.currentRound, 10))/10")
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                }
-                .padding(.horizontal)
-                
-                ProgressView(value: Double(min(game.currentRound, 10)), total: 10)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                    .scaleEffect(x: 1, y: 1.5, anchor: .center)
-                    .padding(.horizontal)
-            }
-            .padding(.vertical, 10)
-            .background(Color.white)
-            .cornerRadius(15)
-            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
-            .padding(.horizontal)
+            GameHeaderView(game: game, topScore: topScore)
             
             // Game Grid
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(game.cards) { card in
-                        MemoryGameCardView(card: card) {
-                            game.selectCard(card)
-                        }
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(game.cards) { card in
+                    GameCardView(card: card) {
+                        game.selectCard(card)
                     }
                 }
-                .padding(.horizontal)
             }
-            .frame(maxHeight: .infinity)
+            .padding(.horizontal)
             
             // Game Stats with Hint Button
             HStack {
                 StatBox(title: "Moves", value: "\(game.moves)")
                 
                 // Hint Button
-                MemoryHintButton(game: game)
+                HintButton(game: game)
                 
                 StatBox(title: "Time", value: "\(game.timeRemaining)s")
             }
@@ -620,16 +558,18 @@ struct MemoryGamePlayView: View {
             }
             .padding(.horizontal)
             
+            Spacer()
+            
             // Control Buttons
             HStack(spacing: 20) {
-                MemoryControlButton(
+                ControlButton(
                     title: "Reset",
                     icon: "arrow.counterclockwise",
                     color: .orange,
                     action: game.resetGame
                 )
                 
-                MemoryControlButton(
+               /* ControlButton(
                     title: game.isGameActive ? "Pause" : "Start",
                     icon: game.isGameActive ? "pause.fill" : "play.fill",
                     color: game.isGameActive ? .gray : .green,
@@ -640,9 +580,9 @@ struct MemoryGamePlayView: View {
                             game.startGame()
                         }
                     }
-                )
+                )*/
                 
-                MemoryControlButton(
+                ControlButton(
                     title: "Menu",
                     icon: "house.fill",
                     color: .blue,
@@ -653,12 +593,12 @@ struct MemoryGamePlayView: View {
             
             // Hint Active Indicator
             if game.isShowingHint {
-                MemoryHintActiveIndicator()
+                HintActiveIndicator()
             }
             
             // Match Feedback
             if game.showMatchFeedback {
-                MemoryMatchFeedbackView(message: game.matchFeedback, color: game.matchFeedbackColor)
+                MatchFeedbackView(message: game.matchFeedback, color: game.matchFeedbackColor)
             }
         }
         .padding(.vertical)
@@ -670,17 +610,77 @@ struct MemoryGamePlayView: View {
     }
 }
 
-// MARK: - Memory Game Header View (Fixed)
-struct MemoryGameHeaderView: View {
+// MARK: - Hint Button
+struct HintButton: View {
+    @ObservedObject var game: MemoryGame
+    
+    var body: some View {
+        Button(action: game.useHint) {
+            VStack(spacing: 5) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.title3)
+                    .foregroundColor(game.hintsRemaining > 0 ? .yellow : .gray)
+                
+                Text("\(game.hintsRemaining)")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(game.hintsRemaining > 0 ? .yellow : .gray)
+                
+                Text("Hints")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(game.hintsRemaining > 0 ? Color.yellow.opacity(0.1) : Color.gray.opacity(0.1))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(game.hintsRemaining > 0 ? Color.yellow : Color.gray, lineWidth: 2)
+            )
+            .shadow(color: game.hintsRemaining > 0 ? Color.yellow.opacity(0.2) : Color.clear, radius: 3, x: 0, y: 2)
+        }
+        .disabled(game.hintsRemaining == 0 || game.isShowingHint || !game.isGameActive)
+        .scaleEffect(game.hintsRemaining > 0 ? 1.0 : 0.95)
+        .animation(.spring(response: 0.3), value: game.hintsRemaining)
+    }
+}
+
+// MARK: - Hint Active Indicator
+struct HintActiveIndicator: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lightbulb.fill")
+                .font(.caption)
+                .foregroundColor(.yellow)
+            
+            Text("Hint Active - Finding a match...")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.yellow)
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 8)
+        .background(Color.yellow.opacity(0.1))
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
+        )
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.3), value: true)
+    }
+}
+
+// MARK: - Game Header View
+struct GameHeaderView: View {
     @ObservedObject var game: MemoryGame
     let topScore: Int
-    let currentLevel: Int
-    let levelProgress: Int
     
     var body: some View {
         VStack(spacing: 10) {
             HStack {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading) {
                     Text("Score")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -700,7 +700,7 @@ struct MemoryGameHeaderView: View {
                 
                 Spacer()
                 
-                VStack(alignment: .center, spacing: 5) {
+                VStack(alignment: .center) {
                     Text("Difficulty")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -712,7 +712,7 @@ struct MemoryGameHeaderView: View {
                 
                 Spacer()
                 
-                VStack(alignment: .trailing, spacing: 5) {
+                VStack(alignment: .trailing) {
                     Text("Time")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -723,12 +723,12 @@ struct MemoryGameHeaderView: View {
                 }
             }
             .padding()
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .cornerRadius(15)
             .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
             .padding(.horizontal)
             
-            Text("Match pairs to complete Level \(currentLevel)")
+            Text("Tap two cards to find matching colors")
                 .font(.headline)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
@@ -759,8 +759,8 @@ struct MemoryGameHeaderView: View {
     }
 }
 
-// MARK: - Memory Game Card View
-struct MemoryGameCardView: View {
+// MARK: - Game Card View
+struct GameCardView: View {
     let card: GameCard
     let onTap: () -> Void
     
@@ -798,69 +798,7 @@ struct MemoryGameCardView: View {
     }
 }
 
-// MARK: - Memory Hint Button
-struct MemoryHintButton: View {
-    @ObservedObject var game: MemoryGame
-    
-    var body: some View {
-        Button(action: game.useHint) {
-            VStack(spacing: 5) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.title3)
-                    .foregroundColor(game.hintsRemaining > 0 ? .yellow : .gray)
-                
-                Text("\(game.hintsRemaining)")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(game.hintsRemaining > 0 ? .yellow : .gray)
-                
-                Text("Hints")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(game.hintsRemaining > 0 ? Color.yellow.opacity(0.1) : Color.gray.opacity(0.1))
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(game.hintsRemaining > 0 ? Color.yellow : Color.gray, lineWidth: 2)
-            )
-            .shadow(color: game.hintsRemaining > 0 ? Color.yellow.opacity(0.2) : Color.clear, radius: 3, x: 0, y: 2)
-        }
-        .disabled(game.hintsRemaining == 0 || game.isShowingHint || !game.isGameActive)
-        .scaleEffect(game.hintsRemaining > 0 ? 1.0 : 0.95)
-        .animation(.spring(response: 0.3), value: game.hintsRemaining)
-    }
-}
-
-// MARK: - Memory Hint Active Indicator
-struct MemoryHintActiveIndicator: View {
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "lightbulb.fill")
-                .font(.caption)
-                .foregroundColor(.yellow)
-            
-            Text("Hint Active - Finding a match...")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.yellow)
-        }
-        .padding(.horizontal, 15)
-        .padding(.vertical, 8)
-        .background(Color.yellow.opacity(0.1))
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
-        )
-        .transition(.opacity)
-        .animation(.easeInOut(duration: 0.3), value: true)
-    }
-}
-
-// MARK: - Stat Box (Shared Component)
+// MARK: - Stat Box
 struct StatBox: View {
     let title: String
     let value: String
@@ -877,14 +815,14 @@ struct StatBox: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 15)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .cornerRadius(10)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 }
 
-// MARK: - Memory Control Button
-struct MemoryControlButton: View {
+// MARK: - Control Button
+struct ControlButton: View {
     let title: String
     let icon: String
     let color: Color
@@ -909,8 +847,8 @@ struct MemoryControlButton: View {
     }
 }
 
-// MARK: - Memory Match Feedback View
-struct MemoryMatchFeedbackView: View {
+// MARK: - Match Feedback View
+struct MatchFeedbackView: View {
     let message: String
     let color: Color
     
@@ -930,11 +868,9 @@ struct MemoryMatchFeedbackView: View {
     }
 }
 
-// MARK: - Memory Game Over View (Fixed)
-struct MemoryGameOverView: View {
+// MARK: - Game Over View
+struct GameOverView: View {
     @ObservedObject var game: MemoryGame
-    @ObservedObject var profileManager: ProfileManager
-    @Environment(\.dismiss) var dismiss
     
     var hintsUsed: Int {
         game.selectedDifficulty.hintCount - game.hintsRemaining
@@ -943,13 +879,6 @@ struct MemoryGameOverView: View {
     var isNewHighScore: Bool {
         let topScore = game.getTopScore(for: game.selectedDifficulty)
         return game.score > topScore
-    }
-    
-    var currentLevel: Int {
-        if let profile = profileManager.currentProfile {
-            return profile.getLevel(for: .memoryMatch, difficulty: game.selectedDifficulty)
-        }
-        return 1
     }
     
     var body: some View {
@@ -975,18 +904,18 @@ struct MemoryGameOverView: View {
                             .foregroundColor(game.timeRemaining == 0 ? .red : .yellow)
                     }
                     
-                    Text(game.timeRemaining == 0 ? "Time's Up!" : "Level Complete!")
+                    Text(game.timeRemaining == 0 ? "Time's Up!" : "You Win!")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(game.timeRemaining == 0 ? .red : .green)
                     
-                    Text(game.timeRemaining == 0 ? "Better luck next time!" : "Great Memory Skills!")
+                    Text(game.timeRemaining == 0 ? "Better luck next time!" : "Excellent Memory!")
                         .font(.title2)
                         .foregroundColor(.secondary)
                 }
                 
                 VStack(spacing: 25) {
-                    MemoryGameStatRow(title: "Final Score", value: "\(game.score)", icon: "star.fill", color: .yellow)
+                    GameStatRow(title: "Final Score", value: "\(game.score)", icon: "star.fill", color: .yellow)
                     
                     if isNewHighScore {
                         HStack {
@@ -1006,30 +935,10 @@ struct MemoryGameOverView: View {
                         }
                     }
                     
-                    MemoryGameStatRow(title: "Moves", value: "\(game.moves)", icon: "arrow.right.arrow.left", color: .blue)
-                    MemoryGameStatRow(title: "Hints Used", value: "\(hintsUsed)/\(game.selectedDifficulty.hintCount)", icon: "lightbulb.fill", color: .purple)
-                    MemoryGameStatRow(title: "Difficulty", value: game.selectedDifficulty.rawValue, icon: "chart.bar.fill", color: getDifficultyColor(game.selectedDifficulty))
-                    MemoryGameStatRow(title: "Time Left", value: "\(game.timeRemaining)s", icon: "clock.fill", color: .orange)
-                    MemoryGameStatRow(title: "Current Level", value: "\(currentLevel)", icon: "chart.bar.fill", color: .green)
-                    
-                    // Level Progress
-                    if game.currentRound >= 10 && game.timeRemaining > 0 {
-                        HStack {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.green)
-                                .frame(width: 40)
-                            
-                            Text("Level \(currentLevel + 1) Unlocked!")
-                                .font(.headline)
-                                .foregroundColor(.green)
-                            
-                            Spacer()
-                            
-                            Text("🎯")
-                                .font(.title2)
-                        }
-                    }
+                    GameStatRow(title: "Moves", value: "\(game.moves)", icon: "arrow.right.arrow.left", color: .blue)
+                    GameStatRow(title: "Hints Used", value: "\(hintsUsed)/\(game.selectedDifficulty.hintCount)", icon: "lightbulb.fill", color: .purple)
+                    GameStatRow(title: "Difficulty", value: game.selectedDifficulty.rawValue, icon: "chart.bar.fill", color: getDifficultyColor(game.selectedDifficulty))
+                    GameStatRow(title: "Time Left", value: "\(game.timeRemaining)s", icon: "clock.fill", color: .orange)
                     
                     // View High Scores Button
                     if !game.highScores.isEmpty {
@@ -1055,7 +964,7 @@ struct MemoryGameOverView: View {
                     }
                 }
                 .padding()
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 .cornerRadius(20)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                 .padding(.horizontal)
@@ -1063,7 +972,7 @@ struct MemoryGameOverView: View {
                 Spacer()
                 
                 VStack(spacing: 15) {
-                    MemoryPrimaryButton(
+                    PrimaryButton(
                         title: "Play Again",
                         icon: "arrow.clockwise",
                         color: .green,
@@ -1074,7 +983,7 @@ struct MemoryGameOverView: View {
                         }
                     )
                     
-                    MemorySecondaryButton(
+                    SecondaryButton(
                         title: "Change Difficulty",
                         icon: "slider.horizontal.3",
                         color: .blue,
@@ -1082,9 +991,9 @@ struct MemoryGameOverView: View {
                     )
                     
                     Button(action: {
-                        dismiss()
+                        game.showHighScoresView()
                     }) {
-                        Text("Back to Main Menu")
+                        Text("View All High Scores")
                             .font(.headline)
                             .foregroundColor(.purple)
                             .frame(height: 50)
@@ -1097,16 +1006,6 @@ struct MemoryGameOverView: View {
             }
             .padding(.vertical, 40)
         }
-        .onAppear {
-            // Update profile score
-            profileManager.updateProfileScore(score: game.score)
-            
-            // Unlock next level if completed 10 rounds
-            if game.currentRound >= 10 && game.timeRemaining > 0 {
-                let nextLevel = min(currentLevel + 1, 10) // Max 10 levels per difficulty
-                profileManager.unlockLevel(for: .memoryMatch, difficulty: game.selectedDifficulty, level: nextLevel)
-            }
-        }
     }
     
     private func getDifficultyColor(_ difficulty: DifficultyLevel) -> Color {
@@ -1118,8 +1017,8 @@ struct MemoryGameOverView: View {
     }
 }
 
-// MARK: - Memory Game Stat Row
-struct MemoryGameStatRow: View {
+// MARK: - Game Stat Row
+struct GameStatRow: View {
     let title: String
     let value: String
     let icon: String
@@ -1146,8 +1045,8 @@ struct MemoryGameStatRow: View {
     }
 }
 
-// MARK: - Memory Primary Button
-struct MemoryPrimaryButton: View {
+// MARK: - Primary Button
+struct PrimaryButton: View {
     let title: String
     let icon: String
     let color: Color
@@ -1171,8 +1070,8 @@ struct MemoryPrimaryButton: View {
     }
 }
 
-// MARK: - Memory Secondary Button
-struct MemorySecondaryButton: View {
+// MARK: - Secondary Button
+struct SecondaryButton: View {
     let title: String
     let icon: String
     let color: Color
@@ -1195,110 +1094,6 @@ struct MemorySecondaryButton: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(color, lineWidth: 2)
             )
-        }
-    }
-}
-
-// MARK: - Memory Game Menu View (Fixed)
-struct MemoryGameMenuView: View {
-    @ObservedObject var game: MemoryGame
-    @ObservedObject var profileManager: ProfileManager
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                if let profile = profileManager.currentProfile {
-                    VStack(spacing: 10) {
-                        Image(systemName: profile.avatar)
-                            .font(.system(size: 60))
-                            .foregroundColor(.blue)
-                        
-                        Text(profile.name)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("Level \(profile.getLevel(for: .memoryMatch, difficulty: game.selectedDifficulty)) - \(game.selectedDifficulty.rawValue)")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                    }
-                    .padding()
-                }
-                
-                Divider()
-                
-                VStack(spacing: 15) {
-                    MemoryMenuButton(title: "Restart Game", icon: "arrow.counterclockwise", color: .orange) {
-                        game.resetGame()
-                        dismiss()
-                    }
-                    
-                    MemoryMenuButton(title: game.isGameActive ? "Pause Game" : "Resume Game",
-                              icon: game.isGameActive ? "pause.fill" : "play.fill",
-                              color: .green) {
-                        if game.isGameActive {
-                            game.endGame()
-                        } else {
-                            game.startGame()
-                        }
-                        dismiss()
-                    }
-                    
-                    MemoryMenuButton(title: "High Scores", icon: "trophy.fill", color: .yellow) {
-                        game.showHighScoresView()
-                        dismiss()
-                    }
-                    
-                    MemoryMenuButton(title: "Change Difficulty", icon: "slider.horizontal.3", color: .blue) {
-                        game.returnToMenu()
-                        dismiss()
-                    }
-                }
-                .padding()
-                
-                Spacer()
-                
-                Button("Close Menu") {
-                    dismiss()
-                }
-                .font(.headline)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 30)
-            }
-            .navigationTitle("Game Menu")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
-// MARK: - Memory Menu Button
-struct MemoryMenuButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-                
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
-            }
-            .padding()
-            .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
         }
     }
 }

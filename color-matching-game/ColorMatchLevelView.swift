@@ -275,6 +275,7 @@ struct ColorLevelCompleteView: View {
             
             if game.currentLevel < game.levels.count {
                 Button(action: {
+                    // Only call nextLevel when button is pressed
                     game.nextLevel()
                 }) {
                     Text("Continue to Level \(game.currentLevel + 1)")
@@ -423,12 +424,15 @@ struct ColorGameMenuView: View {
                             .font(.title2)
                             .fontWeight(.bold)
                         
-                        Text("Level \(profile.getLevel(for: .colorMatch))")
+                        // ✅ Use ProfileManager to get level
+                        let level = profileManager.getLevel(for: .colorMatch)
+                        Text("Level \(level)")
                             .font(.headline)
                             .foregroundColor(.green)
                     }
                     .padding()
                 }
+
                 
                 Divider()
                 

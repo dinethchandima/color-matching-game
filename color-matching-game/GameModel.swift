@@ -47,6 +47,28 @@ enum DifficultyLevel: String, CaseIterable, Codable {
         return totalCards / 2
     }
 }
+import SwiftUI
+
+enum GameType: String, CaseIterable {
+    case memoryMatch = "Memory Match"
+    case colorMatch = "Color Match"
+    
+    var icon: String {
+        switch self {
+        case .memoryMatch: return "brain.head.profile"
+        case .colorMatch: return "paintpalette.fill"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .memoryMatch: return "Test your memory skills by matching pairs!"
+        case .colorMatch: return "Find the correct color as fast as you can!"
+        }
+    }
+}
+
+
 
 struct HighScore: Identifiable, Codable, Comparable {
     let id = UUID()
@@ -93,6 +115,7 @@ class MemoryGame: ObservableObject {
     @Published var highScores: [HighScore] = []
     @Published var showHighScores = false
     @Published var newHighScoreAchieved = false
+    @Published var currentRound: Int = 1
     
     // MARK: - Private Properties
     private var timer: Timer?

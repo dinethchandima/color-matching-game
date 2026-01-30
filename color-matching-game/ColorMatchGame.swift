@@ -31,9 +31,10 @@ class ColorMatchGame: ObservableObject {
     @Published var feedbackMessage = ""
     @Published var showFeedback = false
     @Published var feedbackColor: Color = .clear
+    @Published var levelScore = 0
     
     private var timer: Timer?
-    private var levelTimer: Timer?
+    private var levelCompleted = false // Add this flag
     
     let allColors: [Color] = [
         .red, .blue, .green, .yellow, .orange, .purple,
@@ -146,6 +147,7 @@ class ColorMatchGame: ObservableObject {
     func startGame() {
         isGameActive = true
         gameOver = false
+        levelCompleted = false
         startTimer()
     }
     
@@ -194,11 +196,12 @@ class ColorMatchGame: ObservableObject {
         if colorOption.isCorrect {
             // Correct selection
             score += 10
+            levelScore += 10
             feedbackMessage = "Correct! +10 points"
             feedbackColor = .green
             
             // Check if level completed
-            if score >= currentLevelData.requiredScore {
+            if levelScore >= currentLevelData.requiredScore {
                 completeLevel()
             } else {
                 // Continue with same level
@@ -207,6 +210,7 @@ class ColorMatchGame: ObservableObject {
         } else {
             // Incorrect selection
             score = max(0, score - 5)
+            levelScore = max(0, levelScore - 5)
             feedbackMessage = "Wrong! -5 points"
             feedbackColor = .red
         }
@@ -218,15 +222,19 @@ class ColorMatchGame: ObservableObject {
     }
     
     func completeLevel() {
+        // Prevent multiple calls to completeLevel
+        guard !levelCompleted else { return }
+        levelCompleted = true
+        
         isGameActive = false
         showLevelComplete = true
         timer?.invalidate()
         
         // Check if there are more levels
         if currentLevel < levels.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                self.nextLevel()
-            }
+            // Schedule next level after showing level complete screen
+            // The LevelCompleteView will handle calling nextLevel()
+            // This prevents skipping levels
         } else {
             // Game completed
             gameOver = true
@@ -234,7 +242,15 @@ class ColorMatchGame: ObservableObject {
     }
     
     func nextLevel() {
+        // Only proceed if we're not already at max level
+        guard currentLevel < levels.count else {
+            gameOver = true
+            return
+        }
+        
         currentLevel += 1
+        levelScore = 0
+        levelCompleted = false
         showLevelComplete = false
         setupLevel()
         isGameActive = true
@@ -257,20 +273,25 @@ class ColorMatchGame: ObservableObject {
     func endGame() {
         isGameActive = false
         gameOver = true
+        levelCompleted = false
         timer?.invalidate()
     }
     
     func restartGame() {
         currentLevel = 1
         score = 0
+        levelScore = 0
         gameOver = false
+        levelCompleted = false
         showLevelComplete = false
         setupLevel()
+        startGame()
     }
     
     func restartLevel() {
-        score = 0
+        levelScore = 0
         gameOver = false
+        levelCompleted = false
         showLevelComplete = false
         setupLevel()
         isGameActive = true

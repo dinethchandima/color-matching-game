@@ -21,6 +21,7 @@ struct MainMenuView: View {
     ]
     
     var body: some View {
+        
         NavigationView {
             ZStack {
                 LinearGradient(
@@ -164,6 +165,7 @@ struct MainMenuView: View {
             )
         }
     }
+ 
 }
 
 // MARK: - Menu Game Card View (Renamed from GameCardView)
@@ -194,8 +196,8 @@ struct MenuGameCardView: View {
                     .padding(.horizontal, 5)
                 
                 // Show highest unlocked level
-                if let profile = profileManager.currentProfile {
-                    let level = profile.getLevel(for: game)
+                if let _ = profileManager.currentProfile {
+                    let level = profileManager.getLevel(for: game)
                     HStack {
                         Image(systemName: "chart.bar.fill")
                             .font(.caption)
@@ -210,6 +212,7 @@ struct MenuGameCardView: View {
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(10)
                 }
+
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
@@ -505,3 +508,6 @@ struct CreateProfileView: View {
         }
     }
 }
+// Add this in MainMenuView after the Game Cards section:
+
+
